@@ -1,0 +1,23 @@
+# Base Configuration Files
+
+This directory contains base configuration files synchronized from upstream repositories.
+
+**⚠️ Do not edit files in this directory directly!**
+
+These files are automatically updated by the sync workflows. Any manual changes will be overwritten.
+
+For customizations, use the `../custom/` directory instead.
+
+## Files in this directory:
+
+- `.clinerules` - Core behavior rules from upstream
+- `.roomodes` - Mode definitions from upstream  
+- `.roorules` - Additional rules from upstream
+
+## Last sync: 
+<!-- Updated by workflow automation -->
+
+## Source repositories:
+- https://github.com/RooCodeInc/Roo-Code-Docs
+- https://github.com/aidrivencoder/Roo-Cline
+- https://github.com/GreatScottyMac/roo-code-memory-bank

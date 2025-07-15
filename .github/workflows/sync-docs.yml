@@ -1,0 +1,186 @@
+name: Sync Documentation
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  workflow_dispatch:
+    inputs:
+      full_sync:
+        description: 'Perform full documentation sync'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Create docs sync directory
+      run: |
+        mkdir -p docs/synced-from-official/roo-code-docs
+        mkdir -p docs/synced-from-official/memory-bank
+        mkdir -p docs/synced-from-official/roo-cline
+        mkdir -p temp_docs
+    
+    - name: Sync Roo Code Docs
+      run: |
+        echo "Syncing documentation from RooCodeInc/Roo-Code-Docs..."
+        
+        # Get repository contents
+        curl -H "Accept: application/vnd.github.v3+json" \
+             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+             https://api.github.com/repos/RooCodeInc/Roo-Code-Docs/contents/docs \
+             > temp_docs/roo-docs-contents.json 2>/dev/null || echo "Docs folder not found"
+        
+        # Download key documentation files
+        curl -H "Accept: application/vnd.github.v3.raw" \
+             -L https://api.github.com/repos/RooCodeInc/Roo-Code-Docs/contents/README.md \
+             -o docs/synced-from-official/roo-code-docs/README.md 2>/dev/null || echo "README not found"
+        
+        # Download docusaurus config for understanding structure
+        curl -H "Accept: application/vnd.github.v3.raw" \
+             -L https://api.github.com/repos/RooCodeInc/Roo-Code-Docs/contents/docusaurus.config.ts \
+             -o docs/synced-from-official/roo-code-docs/docusaurus.config.ts 2>/dev/null || echo "Config not found"
+    
+    - name: Sync Memory Bank Docs
+      run: |
+        echo "Syncing documentation from GreatScottyMac/roo-code-memory-bank..."
+        
+        # Download main documentation
+        curl -H "Accept: application/vnd.github.v3.raw" \
+             -L https://api.github.com/repos/GreatScottyMac/roo-code-memory-bank/contents/README.md \
+             -o docs/synced-from-official/memory-bank/README.md 2>/dev/null || echo "README not found"
+        
+        curl -H "Accept: application/vnd.github.v3.raw" \
+             -L https://api.github.com/repos/GreatScottyMac/roo-code-memory-bank/contents/developer-primer.md \
+             -o docs/synced-from-official/memory-bank/developer-primer.md 2>/dev/null || echo "Developer primer not found"
+        
+        curl -H "Accept: application/vnd.github.v3.raw" \
+             -L https://api.github.com/repos/GreatScottyMac/roo-code-memory-bank/contents/projectBrief.md \
+             -o docs/synced-from-official/memory-bank/projectBrief.md 2>/dev/null || echo "Project brief not found"
+    
+    - name: Sync Roo Cline Docs
+      run: |
+        echo "Syncing documentation from aidrivencoder/Roo-Cline..."
+        
+        # Download main documentation
+        curl -H "Accept: application/vnd.github.v3.raw" \
+             -L https://api.github.com/repos/aidrivencoder/Roo-Cline/contents/README.md \
+             -o docs/synced-from-official/roo-cline/README.md 2>/dev/null || echo "README not found"
+        
+        curl -H "Accept: application/vnd.github.v3.raw" \
+             -L https://api.github.com/repos/aidrivencoder/Roo-Cline/contents/CHANGELOG.md \
+             -o docs/synced-from-official/roo-cline/CHANGELOG.md 2>/dev/null || echo "CHANGELOG not found"
+    
+    - name: Process and optimize for LLM
+      run: |
+        echo "Processing documentation for LLM optimization..."
+        
+        # Create index files for each synced documentation set
+        cat > docs/synced-from-official/README.md << 'EOF'
+        # 📚 Synced Documentation
+        
+        This directory contains documentation synchronized from official Roo Code repositories.
+        
+        ## 📁 Structure
+        
+        - **roo-code-docs/**: Official Roo Code documentation
+        - **memory-bank/**: Memory Bank project documentation
+        - **roo-cline/**: Roo Cline main repository documentation
+        
+        ## 🔄 Sync Schedule
+        
+        Documentation is automatically synchronized daily at 6 AM UTC.
+        
+        ## 📖 Key Files
+        
+        ### Roo Code Docs
+        - [README.md](roo-code-docs/README.md) - Main documentation
+        - [docusaurus.config.ts](roo-code-docs/docusaurus.config.ts) - Configuration
+        
+        ### Memory Bank
+        - [README.md](memory-bank/README.md) - Memory Bank overview
+        - [developer-primer.md](memory-bank/developer-primer.md) - Developer guide
+        - [projectBrief.md](memory-bank/projectBrief.md) - Project template
+        
+        ### Roo Cline
+        - [README.md](roo-cline/README.md) - Main repository README
+        - [CHANGELOG.md](roo-cline/CHANGELOG.md) - Version history
+        
+        ## 🚨 Important
+        
+        **Do not edit files in this directory!** They are automatically overwritten during sync.
+        
+        For customizations, create files in the `../custom-guides/` directory.
+        
+        ---
+        
+        *Last updated: $(date -u)*
+        EOF
+    
+    - name: Update sync timestamp
+      run: |
+        echo "## Last documentation sync: $(date -u)" > docs/sync-status.md
+        echo "" >> docs/sync-status.md
+        echo "## Synced repositories:" >> docs/sync-status.md
+        echo "- [RooCodeInc/Roo-Code-Docs](https://github.com/RooCodeInc/Roo-Code-Docs)" >> docs/sync-status.md
+        echo "- [GreatScottyMac/roo-code-memory-bank](https://github.com/GreatScottyMac/roo-code-memory-bank)" >> docs/sync-status.md
+        echo "- [aidrivencoder/Roo-Cline](https://github.com/aidrivencoder/Roo-Cline)" >> docs/sync-status.md
+        echo "" >> docs/sync-status.md
+        echo "## Available Documentation:" >> docs/sync-status.md
+        echo "- [Configuration Guide](configuration-guide.md)" >> docs/sync-status.md
+        echo "- [Mode Customization](mode-customization.md)" >> docs/sync-status.md
+        echo "- [Template Usage](template-usage.md)" >> docs/sync-status.md
+        echo "- [Troubleshooting](troubleshooting.md)" >> docs/sync-status.md
+    
+    - name: Cleanup
+      run: rm -rf temp_docs
+    
+    - name: Check for changes
+      id: changes
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "changes=true" >> $GITHUB_OUTPUT
+          echo "Files changed:"
+          git status --porcelain
+        else
+          echo "changes=false" >> $GITHUB_OUTPUT
+          echo "No documentation changes detected"
+        fi
+    
+    - name: Commit and push changes
+      if: steps.changes.outputs.changes == 'true' || github.event.inputs.full_sync == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add .
+        git commit -m "📚 Auto-sync documentation from upstream repos
+        
+        Synchronized documentation from:
+        - RooCodeInc/Roo-Code-Docs
+        - GreatScottyMac/roo-code-memory-bank
+        - aidrivencoder/Roo-Cline
+        
+        Sync timestamp: $(date -u)"
+        git push
+    
+    - name: Create summary comment
+      if: steps.changes.outputs.changes == 'true'
+      run: |
+        echo "📚 Documentation sync completed successfully!"
+        echo "Updated files: $(git diff --name-only HEAD~1 HEAD | wc -l)"
+        echo "Sync timestamp: $(date -u)"

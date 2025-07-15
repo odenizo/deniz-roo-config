@@ -1,0 +1,168 @@
+name: Sync Configurations
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Mondays at 6 AM UTC
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: 'Force update even if no changes detected'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  sync-configs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Create sync directory
+      run: mkdir -p temp_sync
+    
+    - name: Sync from Roo-Code-Docs
+      run: |
+        echo "Syncing from RooCodeInc/Roo-Code-Docs..."
+        curl -H "Accept: application/vnd.github.v3.raw" \
+             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+             -L https://api.github.com/repos/RooCodeInc/Roo-Code-Docs/contents/.roomodes \
+             -o temp_sync/roomodes.new 2>/dev/null || echo "roomodes not found"
+        
+        curl -H "Accept: application/vnd.github.v3.raw" \
+             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+             -L https://api.github.com/repos/RooCodeInc/Roo-Code-Docs/contents/.roorules \
+             -o temp_sync/roorules.new 2>/dev/null || echo "roorules not found"
+    
+    - name: Sync from Roo-Cline
+      run: |
+        echo "Syncing from aidrivencoder/Roo-Cline..."
+        curl -H "Accept: application/vnd.github.v3.raw" \
+             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+             -L https://api.github.com/repos/aidrivencoder/Roo-Cline/contents/.clinerules \
+             -o temp_sync/clinerules.new 2>/dev/null || echo "clinerules not found"
+    
+    - name: Sync from Memory Bank
+      run: |
+        echo "Syncing from GreatScottyMac/roo-code-memory-bank..."
+        curl -H "Accept: application/vnd.github.v3.raw" \
+             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+             -L https://api.github.com/repos/GreatScottyMac/roo-code-memory-bank/contents/modules \
+             -o temp_sync/memory-modules.json 2>/dev/null || echo "memory modules not found"
+    
+    - name: Process and validate configs
+      run: |
+        echo "Processing configuration files..."
+        
+        # Check if files were downloaded successfully and update if different
+        if [ -f temp_sync/clinerules.new ] && [ -s temp_sync/clinerules.new ]; then
+          if ! cmp -s temp_sync/clinerules.new configurations/base/.clinerules 2>/dev/null; then
+            echo "Updating .clinerules"
+            cp temp_sync/clinerules.new configurations/base/.clinerules
+            echo "CLINERULES_UPDATED=true" >> $GITHUB_ENV
+          fi
+        fi
+        
+        if [ -f temp_sync/roomodes.new ] && [ -s temp_sync/roomodes.new ]; then
+          if ! cmp -s temp_sync/roomodes.new configurations/base/.roomodes 2>/dev/null; then
+            echo "Updating .roomodes"
+            cp temp_sync/roomodes.new configurations/base/.roomodes
+            echo "ROOMODES_UPDATED=true" >> $GITHUB_ENV
+          fi
+        fi
+        
+        if [ -f temp_sync/roorules.new ] && [ -s temp_sync/roorules.new ]; then
+          if ! cmp -s temp_sync/roorules.new configurations/base/.roorules 2>/dev/null; then
+            echo "Updating .roorules"
+            cp temp_sync/roorules.new configurations/base/.roorules
+            echo "ROORULES_UPDATED=true" >> $GITHUB_ENV
+          fi
+        fi
+    
+    - name: Update sync timestamp
+      run: |
+        echo "## Last sync: $(date -u)" > configurations/base/sync-info.md
+        echo "" >> configurations/base/sync-info.md
+        echo "## Source repositories:" >> configurations/base/sync-info.md
+        echo "- https://github.com/RooCodeInc/Roo-Code-Docs" >> configurations/base/sync-info.md
+        echo "- https://github.com/aidrivencoder/Roo-Cline" >> configurations/base/sync-info.md
+        echo "- https://github.com/GreatScottyMac/roo-code-memory-bank" >> configurations/base/sync-info.md
+        echo "" >> configurations/base/sync-info.md
+        echo "## Updated files:" >> configurations/base/sync-info.md
+        [ "$CLINERULES_UPDATED" = "true" ] && echo "- .clinerules" >> configurations/base/sync-info.md
+        [ "$ROOMODES_UPDATED" = "true" ] && echo "- .roomodes" >> configurations/base/sync-info.md
+        [ "$ROORULES_UPDATED" = "true" ] && echo "- .roorules" >> configurations/base/sync-info.md
+    
+    - name: Cleanup
+      run: rm -rf temp_sync
+    
+    - name: Check for changes
+      id: changes
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "changes=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Commit and push changes
+      if: steps.changes.outputs.changes == 'true' || github.event.inputs.force_update == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add .
+        git commit -m "🔄 Auto-sync configurations from upstream repos
+        
+        Updated configurations:
+        $([ "$CLINERULES_UPDATED" = "true" ] && echo "- .clinerules from aidrivencoder/Roo-Cline")
+        $([ "$ROOMODES_UPDATED" = "true" ] && echo "- .roomodes from RooCodeInc/Roo-Code-Docs")
+        $([ "$ROORULES_UPDATED" = "true" ] && echo "- .roorules from RooCodeInc/Roo-Code-Docs")
+        
+        Sync timestamp: $(date -u)"
+        git push
+    
+    - name: Create issue on sync failure
+      if: failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '⚠️ Configuration sync failed',
+            body: `## Sync Failure Report
+            
+            **Date**: ${new Date().toISOString()}
+            **Workflow**: ${context.workflow}
+            **Run**: ${context.runId}
+            
+            The automated configuration sync has failed. Please check the workflow logs and sync manually if needed.
+            
+            ### Possible causes:
+            - Network connectivity issues
+            - Upstream repository changes
+            - File format or structure changes
+            - Authentication issues
+            
+            ### Manual sync steps:
+            1. Check upstream repositories for changes
+            2. Download updated configuration files
+            3. Validate and test configurations
+            4. Commit changes manually
+            
+            [View workflow run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+            `,
+            labels: ['sync-failure', 'automation']
+          })

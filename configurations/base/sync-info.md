@@ -1,4 +1,4 @@
-## Last sync: Mon Jul 21 06:15:21 UTC 2025
+## Last sync: Mon Aug  4 06:03:45 UTC 2025
 
 ## Source repositories:
 - https://github.com/RooCodeInc/Roo-Code-Docs
@@ -6,6 +6,5 @@
 - https://github.com/GreatScottyMac/roo-code-memory-bank
 
 ## Updated files:
-- .clinerules
 - .roomodes
 - .roorules

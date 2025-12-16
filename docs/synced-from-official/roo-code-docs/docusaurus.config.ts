@@ -235,8 +235,8 @@ const config: Config = {
             from: ['/features/tools/execute-command'],
           },
           {
-            to: '/advanced-usage/available-tools/insert-content',
-            from: ['/features/tools/insert-content'],
+            to: '/advanced-usage/available-tools/tool-use-overview',
+            from: ['/features/tools/insert-content', '/advanced-usage/available-tools/insert-content'],
           },
           {
             to: '/advanced-usage/available-tools/list-code-definition-names',
@@ -282,6 +282,11 @@ const config: Config = {
           {
             to: '/providers/roo-code-cloud',
             from: ['/providers/roo'],
+          },
+          // Redirect deleted billing-subscriptions page
+          {
+            to: '/credits/overview',
+            from: ['/roo-code-cloud/billing-subscriptions'],
           },
         ],
       },

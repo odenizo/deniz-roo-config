@@ -299,6 +299,16 @@ const config: Config = {
             to: '/credits/overview',
             from: ['/roo-code-cloud/billing-subscriptions'],
           },
+          // Redirect removed Human Relay provider page
+          {
+            to: '/',
+            from: ['/providers/human-relay'],
+          },
+          // Redirect removed Claude Code provider page
+          {
+            to: '/',
+            from: ['/providers/claude-code'],
+          },
         ],
       },
     ],
